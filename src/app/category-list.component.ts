@@ -15,17 +15,12 @@ import { Component, OnInit } from '@angular/core';
 @Component({
   selector: 'app-category-list',
   template: `
-    <ng-container
-      *ngFor="
-        let productsOfCategory of productsOfCategories$ | async;
-        let i = index
-      "
-    >
+    <ng-container *ngFor="let category of categories$ | async; let i = index">
       <div class="container">
-        <h2>{{ categories[i] }}</h2>
+        <h2>{{ category.name }}</h2>
         <div class="list-container">
           <ng-container
-            *ngFor="let product of productsOfCategory; let j = index"
+            *ngFor="let product of category.products; let j = index"
           >
             <app-product
               *ngIf="j < 4"
@@ -38,7 +33,7 @@ import { Component, OnInit } from '@angular/core';
 
         <span
           style="display: block; margin-top: 1em; color: blue"
-          *ngIf="productsOfCategory.length > 4"
+          *ngIf="category.products.length > 4"
           >See More</span
         >
 
@@ -67,25 +62,23 @@ import { Component, OnInit } from '@angular/core';
   standalone: true,
 })
 export class CategoryListComponent implements OnInit {
-  categories$ = this.productService.getCategories();
-  //   productsByCategory$ =
-  //     this.productService.getProductsByCategory('smartphones');
-
-  categories: any = [];
-
-  productsOfCategories$: any = this.categories$.pipe(
-    tap((res) => console.log(1, res)),
-    tap((categories) => (this.categories = categories)),
-
-    map((categories: any) => {
-      return categories.map((category: any) => {
-        // console.log(2, this.productService.getProductsByCategory(category));
-        return this.productService.getProductsByCategory(category);
-      });
-    }),
-    tap((res) => console.log(3, res)),
-    switchMap((observables) => forkJoin(observables)),
-    tap((res) => console.log(4, res))
+  categories$: any = this.productService.getCategories().pipe(
+    map((categories: any) => [
+      categories,
+      categories.map((category: any) =>
+        this.productService.getProductsByCategory(category)
+      ),
+    ]),
+    switchMap(([categories, observables]) =>
+      forkJoin(observables).pipe(
+        map((products: any) =>
+          categories.map((category: any, index: number) => ({
+            name: category,
+            products: products[index],
+          }))
+        )
+      )
+    )
   );
 
   constructor(private productService: ProductService) {}
